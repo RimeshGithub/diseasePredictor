@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disease Prediction System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #166088;
+            --accent-color: #20a39e;
+            --light-bg: #f8f9fa;
+            --dark-text: #333;
+            --light-text: #666;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .symptom-selector {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .results-section {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+            display: none;
+        }
+        
+        .symptom-tag {
+            background: #e8f4fd;
+            border: 2px solid #4a6fa5;
+            color: #166088;
+            border-radius: 25px;
+            padding: 8px 15px;
+            margin: 5px;
+            display: inline-flex;
+            align-items: center;
+            font-weight: 500;
+        }
+        
+        .symptom-tag .remove-btn {
+            background: none;
+            border: none;
+            color: #dc3545;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0 5px;
+            margin-left: 8px;
+        }
+        
+        .disease-card {
+            border: none;
+            border-radius: 15px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .disease-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+        }
+        
+        .disease-card.high-severity {
+            border-top: 5px solid #dc3545;
+        }
+        
+        .disease-card.medium-severity {
+            border-top: 5px solid #ffc107;
+        }
+        
+        .disease-card.low-severity {
+            border-top: 5px solid #28a745;
+        }
+        
+        .probability-bar {
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            background: #e9ecef;
+            margin: 10px 0;
+        }
+        
+        .probability-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-color), var(--primary-color));
+            border-radius: 5px;
+            transition: width 1s ease-in-out;
+        }
+        
+        .precaution-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .precaution-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .search-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+        
+        .search-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .search-item:last-child {
+            border-bottom: none;
+        }
+        
+        .severity-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        .severity-high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .severity-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .severity-low {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .doctor-recommendation {
+            background: linear-gradient(135deg, #4a6fa5, #166088);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 10px;
+            }
+            
+            .header, .symptom-selector, .results-section {
+                padding: 20px;
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-5 fw-bold text-primary mb-3">
+                        <i class="fas fa-stethoscope me-3"></i>AI Disease Prediction System
+                    </h1>
+                    <p class="lead text-muted">
+                        Select your symptoms from the list below to get an AI-powered prediction of possible diseases, along with descriptions and precautions.
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <small>This is an AI assistant for educational purposes. Always consult a real doctor for medical diagnosis.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Symptom Selection Section -->
+        <div class="symptom-selector">
+            <div class="row">
+                <div class="col-md-8">
+                    <h4 class="mb-4"><i class="fas fa-search me-2"></i>Search and Select Symptoms</h4>
+                    
+                    <div class="search-box mb-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input type="text" id="symptomSearch" class="form-control border-start-0" 
+                                   placeholder="Type to search symptoms (e.g., 'fever', 'headache')...">
+                            <button class="btn btn-primary" type="button" onclick="searchSymptoms()">
+                                <i class="fas fa-search me-1"></i> Search
+                            </button>
+                        </div>
+                        <div id="searchResults" class="search-results"></div>
+                    </div>
+                    
+                    <div id="selectedSymptoms" class="mb-4">
+                        <h6 class="mb-3">Selected Symptoms:</h6>
+                        <div id="selectedTags" class="d-flex flex-wrap">
+                            <!-- Selected symptoms will appear here -->
+                        </div>
+                        <div id="noSymptoms" class="text-muted">
+                            <i class="fas fa-info-circle me-2"></i>No symptoms selected yet. Search and click to add symptoms.
+                        </div>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-lg me-2" onclick="predictDisease()">
+                        <i class="fas fa-brain me-2"></i>Predict Disease
+                    </button>
+                    <button class="btn btn-outline-secondary btn-lg" onclick="clearSelection()">
+                        <i class="fas fa-redo me-2"></i>Clear All
+                    </button>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card bg-light border-0">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-lightbulb me-2"></i>Quick Tips
+                            </h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Select all relevant symptoms</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> More symptoms = Better accuracy</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Start typing to search quickly</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Click on symptoms to remove them</li>
+                                <li><i class="fas fa-exclamation-triangle text-warning me-2"></i> For emergencies, call 911 immediately</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="loading-spinner">
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4 class="mt-3 text-primary">Analyzing symptoms...</h4>
+            <p class="text-muted">Our AI is processing your symptoms to provide accurate predictions.</p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="results-section">
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <h3 class="text-primary">
+                        <i class="fas fa-clipboard-list me-2"></i>Prediction Results
+                    </h3>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-outline-primary" onclick="window.print()">
+                        <i class="fas fa-print me-2"></i>Print Report
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Selected Symptoms Summary -->
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Selected Symptoms</h5>
+                </div>
+                <div class="card-body">
+                    <div id="resultsSymptoms"></div>
+                </div>
+            </div>
+            
+            <!-- Predictions -->
+            <h4 class="mb-4">Top Predictions</h4>
+            <div id="predictionsContainer"></div>
+            
+            <!-- Doctor Recommendation -->
+            <div id="doctorRecommendation" class="doctor-recommendation">
+                <h4 class="text-white">
+                    <i class="fas fa-user-md me-2"></i>Doctor Recommendation
+                </h4>
+                <p class="mb-0" id="recommendedDoctor">
+                    Based on your symptoms, we recommend consulting a <span class="fw-bold">General Physician</span> for proper diagnosis and treatment.
+                </p>
+            </div>
+            
+            <!-- Disclaimer -->
+            <div class="alert alert-warning mt-4">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>Important Disclaimer</h5>
+                <p class="mb-0">
+                    This AI-powered prediction system is for informational and educational purposes only. 
+                    It is not a substitute for professional medical advice, diagnosis, or treatment. 
+                    Always seek the advice of your physician or other qualified health provider with any 
+                    questions you may have regarding a medical condition. In case of emergency, 
+                    please call your local emergency services immediately.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let selectedSymptoms = [];
+        
+        // Search symptoms as user types
+        document.getElementById('symptomSearch').addEventListener('input', function(e) {
+            const query = e.target.value.trim();
+            if (query.length >= 2) {
+                searchSymptoms();
+            } else {
+                document.getElementById('searchResults').style.display = 'none';
+            }
+        });
+        
+        // Search symptoms from backend
+        async function searchSymptoms() {
+            const query = document.getElementById('symptomSearch').value.trim();
+            if (!query) return;
+            
+            try {
+                const response = await fetch('/search_symptoms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+                
+                const data = await response.json();
+                displaySearchResults(data.symptoms);
+            } catch (error) {
+                console.error('Error searching symptoms:', error);
+            }
+        }
+        
+        // Display search results
+        function displaySearchResults(symptoms) {
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (symptoms.length === 0) {
+                resultsDiv.innerHTML = '<div class="search-item text-muted">No symptoms found</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+            
+            let html = '';
+            symptoms.forEach(symptom => {
+                if (!selectedSymptoms.includes(symptom)) {
+                    html += `<div class="search-item" onclick="addSymptom('${symptom}')">${symptom}</div>`;
+                }
+            });
+            
+            resultsDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+        }
+        
+        // Add symptom to selection
+        function addSymptom(symptom) {
+            if (!selectedSymptoms.includes(symptom)) {
+                selectedSymptoms.push(symptom);
+                updateSelectedSymptoms();
+                document.getElementById('symptomSearch').value = '';
+                document.getElementById('searchResults').style.display = 'none';
+            }
+        }
+        
+        // Remove symptom from selection
+        function removeSymptom(symptom) {
+            selectedSymptoms = selectedSymptoms.filter(s => s !== symptom);
+            updateSelectedSymptoms();
+        }
+        
+        // Update selected symptoms display
+        function updateSelectedSymptoms() {
+            const selectedTagsDiv = document.getElementById('selectedTags');
+            const noSymptomsDiv = document.getElementById('noSymptoms');
+            
+            if (selectedSymptoms.length === 0) {
+                selectedTagsDiv.innerHTML = '';
+                noSymptomsDiv.style.display = 'block';
+                return;
+            }
+            
+            noSymptomsDiv.style.display = 'none';
+            
+            let html = '';
+            selectedSymptoms.forEach(symptom => {
+                html += `
+                    <div class="symptom-tag">
+                        ${symptom}
+                        <button class="remove-btn" onclick="removeSymptom('${symptom}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            
+            selectedTagsDiv.innerHTML = html;
+        }
+        
+        // Clear all selected symptoms
+        function clearSelection() {
+            selectedSymptoms = [];
+            updateSelectedSymptoms();
+            document.getElementById('symptomSearch').value = '';
+            document.getElementById('searchResults').style.display = 'none';
+        }
+        
+        // Predict disease
+        async function predictDisease() {
+            if (selectedSymptoms.length === 0) {
+                alert('Please select at least one symptom');
+                return;
+            }
+            
+            // Show loading spinner
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            
+            try {
+                // Prepare form data
+                const formData = new FormData();
+                selectedSymptoms.forEach(symptom => {
+                    formData.append('symptoms[]', symptom);
+                });
+                
+                // Send prediction request
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                // Hide loading spinner
+                document.getElementById('loadingSpinner').style.display = 'none';
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                // Display results
+                displayResults(data);
+                
+            } catch (error) {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                alert('Error making prediction. Please try again.');
+                console.error('Prediction error:', error);
+            }
+        }
+        
+        // Display prediction results
+        function displayResults(data) {
+            // Update selected symptoms in results
+            let symptomsHtml = '';
+            data.selected_symptoms.forEach(symptom => {
+                symptomsHtml += `<span class="badge bg-primary me-2 mb-2 p-2">${symptom}</span>`;
+            });
+            document.getElementById('resultsSymptoms').innerHTML = symptomsHtml;
+            
+            // Display predictions
+            const predictionsContainer = document.getElementById('predictionsContainer');
+            let predictionsHtml = '';
+            
+            data.predictions.forEach((prediction, index) => {
+                const isTop = index === 0;
+                const severityClass = `severity-${prediction.severity.toLowerCase()}`;
+                
+                predictionsHtml += `
+                    <div class="disease-card card ${prediction.severity.toLowerCase()}-severity fade-in">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5 class="card-title">
+                                        ${isTop ? '<i class="fas fa-trophy text-warning me-2"></i>' : ''}
+                                        ${prediction.disease}
+                                        <span class="badge ${severityClass} ms-2 severity-badge">
+                                            ${prediction.severity} Severity
+                                        </span>
+                                    </h5>
+                                    <p class="card-text text-muted mb-3">
+                                        <i class="fas fa-info-circle me-1"></i> ${prediction.description}
+                                    </p>
+                                    
+                                    <h6 class="mt-4">Precautions:</h6>
+                                    <ul class="precaution-list list-unstyled">
+                                        ${prediction.precautions.map(precaution => 
+                                            `<li><i class="fas fa-shield-alt text-success me-2"></i> ${precaution}</li>`
+                                        ).join('')}
+                                    </ul>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h2 class="text-primary">${prediction.probability}%</h2>
+                                        <p class="text-muted">Confidence Score</p>
+                                        <div class="probability-bar">
+                                            <div class="probability-fill" style="width: ${prediction.probability}%"></div>
+                                        </div>
+                                        
+                                        ${isTop ? 
+                                            '<div class="alert alert-success mt-3">' +
+                                            '<i class="fas fa-star me-2"></i><strong>Most Likely</strong></div>' : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            predictionsContainer.innerHTML = predictionsHtml;
+            
+            // Update doctor recommendation
+            document.getElementById('recommendedDoctor').innerHTML = 
+                `Based on your symptoms, we recommend consulting a <span class="fw-bold">${data.recommended_doctor}</span> for proper diagnosis and treatment.`;
+            
+            // Show results section
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+        
+        // Close search results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-box')) {
+                document.getElementById('searchResults').style.display = 'none';
+            }
+        });
+        
+        // Keyboard navigation for search
+        document.getElementById('symptomSearch').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                searchSymptoms();
+            }
+        });
+        
+        // Initialize
+        window.onload = function() {
+            // You can load popular symptoms here if needed
+        };
+    </script>
+</body>
+</html>
