@@ -227,12 +227,6 @@
                         Select your symptoms from the list below to get an AI-powered prediction of possible diseases, along with descriptions and precautions.
                     </p>
                 </div>
-                <div class="col-md-4 text-md-end">
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <small>This is an AI assistant for educational purposes. Always consult a real doctor for medical diagnosis.</small>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -248,7 +242,7 @@
                                 <i class="fas fa-search text-muted"></i>
                             </span>
                             <input type="text" id="symptomSearch" class="form-control border-start-0" 
-                                   placeholder="Type to search symptoms (e.g., 'fever', 'headache')...">
+                                   placeholder="Type to search symptoms (e.g., 'fever', 'headache', ...)">
                             <button class="btn btn-primary" type="button" onclick="searchSymptoms()">
                                 <i class="fas fa-search me-1"></i> Search
                             </button>
@@ -276,7 +270,7 @@
                 
                 <div class="col-md-4">
                     <div class="card bg-light border-0">
-                        <div class="card-body">
+                        <div class="card-body" style="display: flex; gap: 15px; flex-direction: column;">
                             <h5 class="card-title">
                                 <i class="fas fa-lightbulb me-2"></i>Quick Tips
                             </h5>
@@ -284,8 +278,7 @@
                                 <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Select all relevant symptoms</li>
                                 <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> More symptoms = Better accuracy</li>
                                 <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Start typing to search quickly</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Click on symptoms to remove them</li>
-                                <li><i class="fas fa-exclamation-triangle text-warning me-2"></i> For emergencies, call 911 immediately</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Click 'X' on symptoms to remove them</li>
                             </ul>
                         </div>
                     </div>
@@ -309,11 +302,6 @@
                     <h3 class="text-primary">
                         <i class="fas fa-clipboard-list me-2"></i>Prediction Results
                     </h3>
-                </div>
-                <div class="col-md-4 text-end">
-                    <button class="btn btn-outline-primary" onclick="window.print()">
-                        <i class="fas fa-print me-2"></i>Print Report
-                    </button>
                 </div>
             </div>
             
@@ -364,7 +352,7 @@
         // Search symptoms as user types
         document.getElementById('symptomSearch').addEventListener('input', function(e) {
             const query = e.target.value.trim();
-            if (query.length >= 2) {
+            if (query.length >= 1) {
                 searchSymptoms();
             } else {
                 document.getElementById('searchResults').style.display = 'none';
@@ -463,6 +451,7 @@
             updateSelectedSymptoms();
             document.getElementById('symptomSearch').value = '';
             document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'none';
         }
         
         // Predict disease
@@ -552,10 +541,10 @@
                                 
                                 <div class="col-md-4">
                                     <div class="text-center">
-                                        <h2 class="text-primary">${prediction.probability}%</h2>
+                                        <h2 class="text-primary">${prediction.confidence}%</h2>
                                         <p class="text-muted">Confidence Score</p>
                                         <div class="probability-bar">
-                                            <div class="probability-fill" style="width: ${prediction.probability}%"></div>
+                                            <div class="probability-fill" style="width: ${prediction.confidence}%"></div>
                                         </div>
                                         
                                         ${isTop ? 
@@ -573,7 +562,7 @@
             
             // Update doctor recommendation
             document.getElementById('recommendedDoctor').innerHTML = 
-                `Based on your symptoms, we recommend consulting a <span class="fw-bold">${data.recommended_doctor}</span> for proper diagnosis and treatment.`;
+                `Based on your symptoms, the most probable disease is ${data.predictions[0].disease}, and we recommend consulting a <span class="fw-bold">${data.recommended_doctor}</span> for accurate diagnosis and appropriate treatment.`;
             
             // Show results section
             document.getElementById('resultsSection').style.display = 'block';

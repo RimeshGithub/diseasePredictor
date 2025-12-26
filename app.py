@@ -2,104 +2,105 @@ from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import numpy as np
 import joblib
-import json
 
 app = Flask(__name__)
 
-# Load model and datasets
-model = joblib.load('model.joblib')
+# Load your trained model and encoders
+try:
+    loaded_model = joblib.load('model.joblib')
+    loaded_symptom_index = joblib.load('symptom_index.joblib')
+    loaded_label_encoder = joblib.load('label_encoder.joblib')
+    print("Trained model and encoders loaded successfully")
+except Exception as e:
+    print(f"Error loading trained files: {e}")
+    loaded_model = None
+    loaded_symptom_index = {}
+    loaded_label_encoder = None
 
 # Load datasets
 try:
     df_dataset = pd.read_csv('dataset.csv')
-    df_symptoms = pd.read_csv('symptom_severity.csv')
+    df_severity = pd.read_csv('symptom_severity.csv')  # Note: updated filename
     df_description = pd.read_csv('symptom_description.csv')
     df_precaution = pd.read_csv('symptom_precaution.csv')
+    df_disease_severity = pd.read_csv('disease_severity.csv')
 except Exception as e:
     print(f"Error loading CSV files: {e}")
-    # Create placeholder dataframes if files don't exist
     df_dataset = pd.DataFrame()
-    df_symptoms = pd.DataFrame()
+    df_severity = pd.DataFrame()
     df_description = pd.DataFrame()
     df_precaution = pd.DataFrame()
+    df_disease_severity = pd.DataFrame()
 
-# Prepare symptom list
-if not df_symptoms.empty:
-    symptom_list = df_symptoms['Symptom'].tolist()
+# Create severity map from severity dataset
+if not df_severity.empty:
+    severity_df = df_severity.copy()
+    severity_df['Symptom'] = (
+        severity_df['Symptom']
+        .str.lower()
+        .str.strip()
+        .str.replace('_', ' ')
+    )
+    severity_map = dict(zip(severity_df['Symptom'], severity_df['weight']))
 else:
-    # Create default symptom list from dataset if available
-    if not df_dataset.empty:
-        symptom_list = []
+    severity_map = {}
+
+# Prepare symptom list from trained index
+if loaded_symptom_index:
+    symptom_list = list(loaded_symptom_index.keys())
+    symptom_list = sorted(symptom_list)
+    print(f"Loaded {len(symptom_list)} symptoms from trained index")
+else:
+    # Fallback: create symptom list from datasets
+    symptom_list = []
+    if not df_severity.empty:
+        symptom_list = df_severity['Symptom'].tolist()
+    elif not df_dataset.empty:
         for col in df_dataset.columns:
             if col.startswith('Symptom_'):
                 symptoms = df_dataset[col].dropna().unique()
                 symptom_list.extend(symptoms)
         symptom_list = list(set(symptom_list))
-    else:
-        symptom_list = []
-
-# Clean symptom names for consistency
-def clean_symptom_name(symptom):
-    """Clean symptom name for matching"""
-    if isinstance(symptom, str):
-        return symptom.lower().strip().replace('_', ' ').replace('-', ' ')
-    return ""
-
-# Clean all symptom lists
-symptom_list = [clean_symptom_name(s) for s in symptom_list if s]
-symptom_list = sorted(list(set(symptom_list)))
-
-# Create symptom index mapping
-symptom_index = {symptom: idx for idx, symptom in enumerate(symptom_list)}
+    
+    # Clean symptom names
+    def clean_symptom_name(symptom):
+        if isinstance(symptom, str):
+            return symptom.lower().strip().replace('_', ' ')
+        return ""
+    
+    symptom_list = [clean_symptom_name(s) for s in symptom_list if s]
+    symptom_list = sorted(list(set(symptom_list)))
+    print(f"Loaded {len(symptom_list)} symptoms from datasets")
 
 # Function to prepare input for prediction
 def prepare_input(selected_symptoms):
-    """Convert selected symptoms to model input format"""
-    # Check if we have symptom severity data
-    if df_symptoms.empty or 'Symptom' not in df_symptoms.columns or 'weight' not in df_symptoms.columns:
-        # Fallback: create a simple binary encoding
-        input_vector = [0] * len(symptom_list)
-        for symptom in selected_symptoms:
-            clean_symp = clean_symptom_name(symptom)
-            if clean_symp in symptom_index:
-                input_vector[symptom_index[clean_symp]] = 1
-        return np.array([input_vector], dtype=np.float64)
+    """Convert selected symptoms to model input format using trained encoders"""
+    if not loaded_symptom_index:
+        raise ValueError("Trained symptom index not loaded")
     
-    # Original logic with symptom weights
-    a = np.array(df_symptoms["Symptom"])
-    b = np.array(df_symptoms["weight"])
+    # Create zero vector with same length as training symptoms
+    x = np.zeros(len(loaded_symptom_index))
     
-    # Clean the selected symptoms for matching
-    selected_symptoms_clean = [clean_symptom_name(s) for s in selected_symptoms]
+    # Process each symptom
+    for symptom in selected_symptoms:
+        # Clean the symptom name (same as training)
+        s = symptom.lower().strip().replace('_', ' ')
+        
+        # Check if symptom exists in trained index
+        if s in loaded_symptom_index:
+            # Use severity weight if available, otherwise 1
+            weight = severity_map.get(s, 1)
+            x[loaded_symptom_index[s]] = weight
     
-    # Replace symptoms with their weights
-    weighted_symptoms = []
-    for symptom in selected_symptoms_clean:
-        found = False
-        for k in range(len(a)):
-            if clean_symptom_name(a[k]) == symptom:
-                weighted_symptoms.append(float(b[k]))  # Convert to float
-                found = True
-                break
-        if not found:
-            weighted_symptoms.append(1.0)  # Default weight if not found
-    
-    MAX_LEN = 17
-    
-    if len(weighted_symptoms) < MAX_LEN:
-        weighted_symptoms.extend([0.0] * (MAX_LEN - len(weighted_symptoms)))
-    elif len(weighted_symptoms) > MAX_LEN:
-        weighted_symptoms = weighted_symptoms[:MAX_LEN]
-    
-    return np.array([weighted_symptoms], dtype=np.float64)
+    return x.reshape(1, -1)  # Reshape to (1, n_features)
 
-# Function to convert numpy types to Python native types
+# Keep all your helper functions unchanged:
 def convert_numpy_types(obj):
-    """Recursively convert numpy types to Python native types for JSON serialization"""
+    """Recursively convert numpy types to Python native types"""
     if isinstance(obj, np.generic):
-        return obj.item()  # Convert numpy scalar to Python scalar
+        return obj.item()
     elif isinstance(obj, np.ndarray):
-        return obj.tolist()  # Convert numpy array to list
+        return obj.tolist()
     elif isinstance(obj, dict):
         return {k: convert_numpy_types(v) for k, v in obj.items()}
     elif isinstance(obj, list):
@@ -107,7 +108,6 @@ def convert_numpy_types(obj):
     else:
         return obj
 
-# Function to get disease description
 def get_disease_description(disease_name):
     """Get description of the disease"""
     if df_description.empty:
@@ -120,7 +120,6 @@ def get_disease_description(disease_name):
     
     return f"No detailed description available for {disease_name}"
 
-# Function to get disease precautions
 def get_disease_precautions(disease_name):
     """Get precautions for the disease"""
     if df_precaution.empty:
@@ -130,7 +129,7 @@ def get_disease_precautions(disease_name):
     for idx, row in df_precaution.iterrows():
         if str(row['Disease']).strip().lower() == disease_name_clean:
             precautions = []
-            for i in range(1, 5):  # Assuming 4 precaution columns
+            for i in range(1, 5):
                 col_name = f'Precaution_{i}'
                 if col_name in row and pd.notna(row[col_name]):
                     precautions.append(str(row[col_name]))
@@ -138,28 +137,18 @@ def get_disease_precautions(disease_name):
     
     return ["Consult a doctor", "Take prescribed medication", "Get adequate rest", "Maintain good hygiene"]
 
-# Function to get disease severity
 def get_disease_severity(disease_name):
-    """Estimate disease severity based on symptoms"""
-    if df_symptoms.empty or df_dataset.empty:
-        return "Medium"
+    """Show disease severity"""
+    disease_name = disease_name.lower().strip()
     
-    # Count number of symptoms for the disease
-    disease_symptoms_count = 0
-    disease_name_clean = str(disease_name).strip().lower()
+    match = df_disease_severity[df_disease_severity["Disease"] == disease_name]
     
-    for idx, row in df_dataset.iterrows():
-        if str(row['Disease']).strip().lower() == disease_name_clean:
-            disease_symptoms_count = sum(1 for col in df_dataset.columns if col.startswith('Symptom_') and pd.notna(row[col]))
-            break
+    if not match.empty:
+        return match.iloc[0]["Severity"]
     
-    if disease_symptoms_count > 10:
-        return "High"
-    elif disease_symptoms_count > 5:
-        return "Medium"
-    else:
-        return "Low"
+    return "Medium"  # default fallback
 
+# Routes (keep your existing routes with updated predict function)
 @app.route('/')
 def home():
     """Render the main page"""
@@ -167,8 +156,13 @@ def home():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Handle disease prediction"""
+    """Handle disease prediction using trained model"""
     try:
+        if not loaded_model:
+            return jsonify({
+                'error': 'Prediction model not loaded. Please check server configuration.'
+            })
+        
         # Get symptoms from form
         selected_symptoms = request.form.getlist('symptoms[]')
         
@@ -179,88 +173,63 @@ def predict():
         
         print(f"Selected symptoms: {selected_symptoms}")
         
-        # Prepare input for model
+        # Prepare input using trained encoders
         input_data = prepare_input(selected_symptoms)
-        print(f"Input data shape: {input_data.shape}")
-        print(f"Input data type: {type(input_data)}")
         
-        # Make prediction
-        prediction = model.predict(input_data)[0]
-        probabilities = model.predict_proba(input_data)[0]
+        # Make prediction using trained model
+        probabilities = loaded_model.predict_proba(input_data)[0]
         
-        print(f"Prediction: {prediction}")
-        print(f"Probabilities shape: {probabilities.shape}")
-        
-        # Get top 3 predictions
+        # Get top 3 predictions with confidence
         top_n = 3
-        classes = model.classes_
         top_indices = np.argsort(probabilities)[-top_n:][::-1]
-        top_diseases = classes[top_indices]
-        top_probabilities = probabilities[top_indices]
+        top_probs = probabilities[top_indices]
         
-        print(f"Top diseases: {top_diseases}")
-        print(f"Top probabilities: {top_probabilities}")
+        # Normalize probabilities to sum to 100%
+        normalized_probs = top_probs / top_probs.sum()
         
-        # Prepare response
+        # Prepare predictions with confidence scores
         predictions = []
-        for disease, prob in zip(top_diseases, top_probabilities):
+        for idx, prob in zip(top_indices, normalized_probs):
+            disease_name = loaded_label_encoder.inverse_transform([idx])[0]
+            confidence = round(prob * 100, 2)
+            
             predictions.append({
-                'disease': str(disease),  # Ensure it's a string
-                'probability': float(round(prob * 100, 2)),  # Convert to float
-                'description': get_disease_description(disease),
-                'precautions': get_disease_precautions(disease),
-                'severity': get_disease_severity(disease)
+                'disease': str(disease_name).title(),
+                'confidence': float(confidence),
+                'description': get_disease_description(disease_name),
+                'precautions': get_disease_precautions(disease_name),
+                'severity': get_disease_severity(disease_name)
             })
         
-        # Get recommended doctor type (simplified)
+        # Get recommended doctor type
         doctor_types = {
-            'dermatologist': [
-                'Acne', 'Psoriasis', 'Fungal infection', 'Impetigo', 'Chicken pox'
-            ],
-            'endocrinologist': [
-                'Hyperthyroidism', 'Hypothyroidism', 'Diabetes', 'Hypoglycemia'
-            ],
-            'infectious disease specialist': [
-                'AIDS', 'Hepatitis A', 'Hepatitis B', 'Hepatitis C', 'Hepatitis D', 'Hepatitis E',
-                'Tuberculosis', 'Typhoid', 'Dengue', 'Malaria', 'Pneumonia'
-            ],
-            'gastroenterologist': [
-                'Chronic cholestasis', 'Jaundice', 'Peptic ulcer diseae', 'GERD', 'Alcoholic hepatitis', 'Gastroenteritis'
-            ],
-            'cardiologist': [
-                'Hypertension', 'Heart attack'
-            ],
-            'neurologist': [
-                'Migraine', '(vertigo) Paroymsal  Positional Vertigo', 'Paralysis (brain hemorrhage)'
-            ],
-            'rheumatologist': [
-                'Arthritis', 'Osteoarthristis', 'Cervical spondylosis', 'Varicose veins', 'Bronchial Asthma'
-            ],
-            'urologist': [
-                'Urinary tract infection'
-            ],
-            'allergist': [
-                'Allergy', 'Common Cold'
-            ],
-            'general physician': [
-                'Drug Reaction'  # Default for any disease not clearly under a specialty
-            ]
+            'dermatologist': ['Acne', 'Psoriasis', 'Fungal infection', 'Impetigo', 'Chicken pox'],
+            'endocrinologist': ['Hyperthyroidism', 'Hypothyroidism', 'Diabetes', 'Hypoglycemia'],
+            'infectious disease specialist': ['AIDS', 'Hepatitis A', 'Hepatitis B', 'Hepatitis C', 'Hepatitis D', 'Hepatitis E', 'Tuberculosis', 'Typhoid', 'Dengue', 'Malaria', 'Pneumonia'],
+            'gastroenterologist': ['Chronic cholestasis', 'Jaundice', 'Peptic ulcer disease', 'GERD', 'Alcoholic hepatitis', 'Gastroenteritis'],
+            'cardiologist': ['Hypertension', 'Heart attack'],
+            'neurologist': ['Migraine', '(vertigo) Paroxysmal Positional Vertigo', 'Paralysis (brain hemorrhage)'],
+            'rheumatologist': ['Arthritis', 'Osteoarthritis', 'Cervical spondylosis', 'Varicose veins', 'Bronchial Asthma'],
+            'urologist': ['Urinary tract infection'],
+            'allergist': ['Allergy', 'Common Cold'],
+            'general physician': ['Drug Reaction']
         }
         
         primary_disease = str(predictions[0]['disease']).lower()
         recommended_doctor = 'general physician'
         
         for doctor, keywords in doctor_types.items():
-            if any(keyword in primary_disease for keyword in keywords):
+            if any(keyword.lower() in primary_disease for keyword in keywords):
                 recommended_doctor = doctor
                 break
         
-        # Prepare response data with converted types
+        # Prepare response
         response_data = {
             'success': True,
             'predictions': convert_numpy_types(predictions),
             'selected_symptoms': selected_symptoms,
-            'recommended_doctor': recommended_doctor.capitalize()
+            'recommended_doctor': recommended_doctor.title(),
+            'total_confidence': float(round(sum([p['confidence'] for p in predictions]), 2))
         }
         
         return jsonify(response_data)
@@ -276,6 +245,7 @@ def predict():
             'details': str(error_details) if app.debug else None
         })
 
+# Keep your other routes unchanged
 @app.route('/symptoms', methods=['GET'])
 def get_symptoms():
     """Get all available symptoms (for API)"""
@@ -297,7 +267,7 @@ def search_symptoms():
         matched_symptoms = [s for s in symptom_list if query in s.lower()]
         
         return jsonify({
-            'symptoms': matched_symptoms[:10]  # Limit to 10 results
+            'symptoms': matched_symptoms[:10]
         })
     except Exception as e:
         return jsonify({'symptoms': [], 'error': str(e)})
