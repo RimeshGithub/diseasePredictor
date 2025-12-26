@@ -194,6 +194,57 @@
             margin-top: 20px;
         }
         
+        /* All Symptoms Modal Styles */
+        .all-symptoms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .symptom-item {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .symptom-item:hover {
+            background: #e8f4fd;
+            border-color: #4a6fa5;
+            transform: translateY(-2px);
+        }
+        
+        .symptom-item.selected {
+            background: #4a6fa5;
+            color: white;
+            border-color: #4a6fa5;
+        }
+        
+        .symptom-item.selected:hover {
+            background: #3a5f95;
+        }
+        
+        .modal-dialog-scrollable .modal-body {
+            max-height: calc(100vh - 200px);
+        }
+        
+        .symptom-filter {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #dee2e6;
+            margin-bottom: 15px;
+        }
+        
         @media (max-width: 768px) {
             .main-container {
                 padding: 10px;
@@ -201,6 +252,10 @@
             
             .header, .symptom-selector, .results-section {
                 padding: 20px;
+            }
+            
+            .all-symptoms-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
             }
         }
         
@@ -238,13 +293,16 @@
                     
                     <div class="search-box mb-4">
                         <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0">
+                            <span class="input-group-text border-end-0">
                                 <i class="fas fa-search text-muted"></i>
                             </span>
-                            <input type="text" id="symptomSearch" class="form-control border-start-0" 
-                                   placeholder="Type to search symptoms (e.g., 'fever', 'headache', ...)">
-                            <button class="btn btn-primary" type="button" onclick="searchSymptoms()">
+                            <input type="text" id="symptomSearch" class="form-control border-start-0"
+                                   placeholder="Type to search symptoms ( e.g., 'fever', 'headache', ... )">
+                            <button class="btn btn-primary" type="button" onclick="searchSymptoms()" style="margin-left: 10px;">
                                 <i class="fas fa-search me-1"></i> Search
+                            </button>
+                            <button class="btn btn-primary text-white" type="button" onclick="showAllSymptoms()" style="margin-left: 5px;">
+                                <i class="fas fa-list me-1"></i> View All
                             </button>
                         </div>
                         <div id="searchResults" class="search-results"></div>
@@ -275,9 +333,9 @@
                                 <i class="fas fa-lightbulb me-2"></i>Quick Tips
                             </h5>
                             <ul class="list-unstyled">
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Select all relevant symptoms</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Search & Select all relevant symptoms</li>
                                 <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> More symptoms = Better accuracy</li>
-                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Start typing to search quickly</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Use "View All" to browse symptoms</li>
                                 <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i> Click 'X' on symptoms to remove them</li>
                             </ul>
                         </div>
@@ -343,11 +401,58 @@
         </div>
     </div>
 
+    <!-- All Symptoms Modal -->
+    <div class="modal fade" id="allSymptomsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-list-ul me-2"></i>All Available Symptoms
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="symptom-filter">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" id="modalSymptomFilter" class="form-control" 
+                                   placeholder="Search symptoms..." onkeyup="filterModalSymptoms()">
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Click on symptoms to select/deselect. Selected: <span id="selectedCount" class="fw-bold">0</span>
+                            </small>
+                        </div>
+                    </div>
+                    <div id="allSymptomsGrid" class="all-symptoms-grid" style="height: 320px;">
+                        <!-- Symptoms will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" onclick="applySymptomSelection()">
+                        <i class="fas fa-check me-2"></i>Apply Selection
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
         let selectedSymptoms = [];
+        let allSymptomsList = [];
+        let symptomsModal;
+        
+        // Initialize modal
+        document.addEventListener('DOMContentLoaded', function() {
+            symptomsModal = new bootstrap.Modal(document.getElementById('allSymptomsModal'));
+        });
         
         // Search symptoms as user types
         document.getElementById('symptomSearch').addEventListener('input', function(e) {
@@ -378,6 +483,79 @@
             } catch (error) {
                 console.error('Error searching symptoms:', error);
             }
+        }
+        
+        // Show all symptoms modal
+        async function showAllSymptoms() {
+            try {
+                const response = await fetch('/get_all_symptoms');
+                const data = await response.json();
+                allSymptomsList = data.symptoms;
+                displayAllSymptoms(allSymptomsList);
+                symptomsModal.show();
+            } catch (error) {
+                console.error('Error loading all symptoms:', error);
+                alert('Error loading symptoms. Please try again.');
+            }
+        }
+        
+        // Display all symptoms in modal
+        function displayAllSymptoms(symptoms) {
+            const grid = document.getElementById('allSymptomsGrid');
+            let html = '';
+            
+            symptoms.forEach(symptom => {
+                const isSelected = selectedSymptoms.includes(symptom);
+                html += `
+                    <div class="symptom-item ${isSelected ? 'selected' : ''}" 
+                         onclick="toggleSymptomInModal('${symptom}')" 
+                         data-symptom="${symptom}">
+                        ${isSelected ? '<i class="fas fa-check-circle me-1"></i>' : ''}
+                        ${symptom.replace(/_/g, ' ')}
+                    </div>
+                `;
+            });
+            
+            grid.innerHTML = html;
+            updateSelectedCount();
+        }
+        
+        // Filter symptoms in modal
+        function filterModalSymptoms() {
+            const filter = document.getElementById('modalSymptomFilter').value.toLowerCase();
+            const filtered = allSymptomsList.filter(symptom => 
+                symptom.toLowerCase().includes(filter)
+            );
+            displayAllSymptoms(filtered);
+        }
+        
+        // Toggle symptom selection in modal
+        function toggleSymptomInModal(symptom) {
+            const index = selectedSymptoms.indexOf(symptom);
+            const element = document.querySelector(`[data-symptom="${symptom}"]`);
+            
+            if (index > -1) {
+                selectedSymptoms.splice(index, 1);
+                element.classList.remove('selected');
+                element.innerHTML = symptom.replace(/_/g, ' ');
+            } else {
+                selectedSymptoms.push(symptom);
+                element.classList.add('selected');
+                element.innerHTML = '<i class="fas fa-check-circle me-1"></i>' + symptom.replace(/_/g, ' ');
+            }
+            
+            updateSelectedCount();
+        }
+        
+        // Update selected count in modal
+        function updateSelectedCount() {
+            document.getElementById('selectedCount').textContent = selectedSymptoms.length;
+        }
+        
+        // Apply symptom selection from modal
+        function applySymptomSelection() {
+            updateSelectedSymptoms();
+            symptomsModal.hide();
         }
         
         // Display search results
@@ -586,11 +764,6 @@
                 searchSymptoms();
             }
         });
-        
-        // Initialize
-        window.onload = function() {
-            // You can load popular symptoms here if needed
-        };
     </script>
 </body>
 </html>

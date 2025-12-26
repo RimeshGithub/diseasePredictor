@@ -19,22 +19,22 @@ except Exception as e:
 
 # Load datasets
 try:
-    df_dataset = pd.read_csv('dataset.csv')
-    df_severity = pd.read_csv('symptom_severity.csv')  # Note: updated filename
-    df_description = pd.read_csv('symptom_description.csv')
-    df_precaution = pd.read_csv('symptom_precaution.csv')
+    df_dataset = pd.read_csv('dataset.csv') 
+    df_description = pd.read_csv('disease_description.csv')
+    df_precaution = pd.read_csv('disease_precaution.csv')
     df_disease_severity = pd.read_csv('disease_severity.csv')
+    df_symptom_severity = pd.read_csv('symptom_severity.csv')
 except Exception as e:
     print(f"Error loading CSV files: {e}")
     df_dataset = pd.DataFrame()
-    df_severity = pd.DataFrame()
     df_description = pd.DataFrame()
     df_precaution = pd.DataFrame()
     df_disease_severity = pd.DataFrame()
+    df_symptom_severity = pd.DataFrame()
 
 # Create severity map from severity dataset
-if not df_severity.empty:
-    severity_df = df_severity.copy()
+if not df_symptom_severity.empty:
+    severity_df = df_symptom_severity.copy()
     severity_df['Symptom'] = (
         severity_df['Symptom']
         .str.lower()
@@ -53,8 +53,8 @@ if loaded_symptom_index:
 else:
     # Fallback: create symptom list from datasets
     symptom_list = []
-    if not df_severity.empty:
-        symptom_list = df_severity['Symptom'].tolist()
+    if not df_symptom_severity.empty:
+        symptom_list = df_symptom_severity['Symptom'].tolist()
     elif not df_dataset.empty:
         for col in df_dataset.columns:
             if col.startswith('Symptom_'):
@@ -271,6 +271,13 @@ def search_symptoms():
         })
     except Exception as e:
         return jsonify({'symptoms': [], 'error': str(e)})
+
+@app.route('/get_all_symptoms')
+def get_all_symptoms():
+    return jsonify({
+        'symptoms': list(symptom_list) 
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
