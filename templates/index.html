@@ -276,7 +276,7 @@
             <div class="row align-items-center">
                 <div class="col-md-8">
                     <h1 class="display-5 fw-bold text-primary mb-3">
-                        <i class="fas fa-stethoscope me-3"></i>AI Disease Prediction System
+                        <i class="fas fa-stethoscope me-10" style="margin-right: 25px;"></i>AI Disease Prediction System
                     </h1>
                     <p class="lead text-muted">
                         Select your symptoms from the list below to get an AI-powered prediction of possible diseases, along with descriptions and precautions.
@@ -699,7 +699,6 @@
                             <div class="row">
                                 <div class="col-md-8">
                                     <h5 class="card-title">
-                                        ${isTop ? '<i class="fas fa-trophy text-warning me-2"></i>' : ''}
                                         ${prediction.disease}
                                         <span class="badge ${severityClass} ms-2 severity-badge">
                                             ${prediction.severity} Severity
@@ -724,10 +723,9 @@
                                         <div class="probability-bar">
                                             <div class="probability-fill" style="width: ${prediction.confidence}%"></div>
                                         </div>
-                                        
                                         ${isTop ? 
-                                            '<div class="alert alert-success mt-3">' +
-                                            '<i class="fas fa-star me-2"></i><strong>Most Likely</strong></div>' : ''}
+                                            '<div class="alert mt-3">' +
+                                            '<i class="fas fa-trophy text-warning me-2"></i><strong>Most Likely</strong></div>' : ''}
                                     </div>
                                 </div>
                             </div>

@@ -212,6 +212,7 @@ def predict():
             'rheumatologist': ['Arthritis', 'Osteoarthritis', 'Cervical spondylosis', 'Varicose veins', 'Bronchial Asthma'],
             'urologist': ['Urinary tract infection'],
             'allergist': ['Allergy', 'Common Cold'],
+            'proctologist': ['Dimorphic Hemmorhoids(Piles)'],
             'general physician': ['Drug Reaction']
         }
         
